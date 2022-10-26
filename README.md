@@ -4,7 +4,7 @@ This is a test repository, where I will test the different usages of GitHub.
 Trying to add a figure to the file:
 
 <p align="center">
-<img src="images/signature.png" width="200">
+<img src="images/irbv.png" width="200">
 </p>
 
 Test pour la suite des choses
