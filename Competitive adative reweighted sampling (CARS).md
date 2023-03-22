@@ -13,7 +13,7 @@ This technique add to the many more that have been developed to conduct feature 
 
 All these techniques have been demonstrated to improve PLS model performance over full models (with no filtering of "uninformative" wavelengths) in spectranomics. In CARS, the optimization in one that maximizes the performance of the **calibration model**, generally being assessed through RMSECV:
 
-$$ RMSECV = \sqrt{(y_i - \hat{y}_i)^2 \over n}$$
+$$ RMSECV = \sqrt{\sum(y_i - \hat{y}_i)^2 \over n}$$
 
 with :
 
@@ -122,3 +122,46 @@ H-->I
 ## Implementation in R
 -----------
 
+First, let's load appropriate package and retrieve some test dataset (``NIRsoil``). We can partition this dataset into a calibration and a validation set according to a given $p$ ratio. Here, we go with  $p=0.8$, meaning that 80% of the dataset will go to model calibration, and 20% will go to validation. For convenience, speed and simplicity, we here go with a random allocation of samples to training vs. testing, but in a real analysis, we might want to opt for a better approach that ensures a proper representation of the inter-sample variability in **both** the training and validation sets, such as the Kennard-Stone algorithm, or the conditioned Latin Hypercube Sampling (cHLS). We also specify a pls model with $n=10$ components. This can be further explored with your own data...
+```R
+rm(list=ls())
+library(pls)
+library(prospectr)
+data(NIRsoil)
+
+### X are soil spectra
+X=NIRsoil$spc
+
+### Y are soil C content
+Y=NIRsoil$Ciso
+
+### Keep only those samples for which C data is available
+X=X[!is.na(Y),]
+Y=Y[!is.na(Y)]
+
+### Determine a proportion of samples to go towards training/calibration
+p=.8
+train=sample(c(rep(1,ceiling(p*length(Y))),rep(0,length(Y)-ceiling(p*length(Y)))),length(Y),replace=F)==1
+
+### Build a pls model (here with n=10 components)
+ncomp=10
+calib=plsr(Y~X,ncomp=ncomp,subset=train,validation="none")
+
+### Predict, from this calibration models, Y values for the spectra not included in the calibration model (i.e., validate the model)
+pred=predict(calib,X[!train,])
+
+### Define a RMSE function to calculate the RMSE on the validation set
+RMSE=function(pred,real){
+	sqrt(sum((pred-real)^2)/length(real))}
+
+rmsecv=RMSE(Y[!train],pred[,,ncomp])
+
+temp=numeric(ncomp)
+for(i in 1:ncomp){temp[i]=RMSE(Y[!train],pred[,,i])}
+
+plot(temp~c(1:ncomp))
+
+
+### in progress..................
+
+```
