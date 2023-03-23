@@ -102,7 +102,7 @@ rownames(d)=paste("stratum",1:n,sep=" ")
 #### Likewise, summarize results from "counts" into a matrix summarizing counts for each sample for each stratum (will serve to determine which sample from "s" to swap out of "s" to try improving the subsample "s")
 e=matrix(nr=n,nc=n)
 for(i in 1:nrow(e)){
-	temp=counts[counts[,1]==i,3:ncol(dat)]
+	temp=as.matrix(counts[counts[,1]==i,3:ncol(dat)])
 	for(j in 1:ncol(e)){e[i,j]=rowSums(temp)[j]}}
 colnames(e)=paste("stratum",1:n,sep=" ")
 rownames(e)=paste("sample",1:n,sep=" ")
