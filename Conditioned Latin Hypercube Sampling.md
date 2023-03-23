@@ -46,10 +46,10 @@ Then you will want to distinguish continuous from categorical variables, and sep
 <br>
 
 ```R
-dat_con=dat[,categ==0]		### continuous variables in the full dataset
-dat_cat=dat[,categ==1]		### categorical variables in the full dataset
-s_con=s[,categ==0]		### continuous variables in the ensemble "s"	
-s_cat=s[,categ==1]		### categorical variables in the ensemble "s"
+dat_con=as.matrix(dat[,categ==0])		### continuous variables in the full dataset
+dat_cat=as.matrix(dat[,categ==1])		### categorical variables in the full dataset
+s_con=as.matrix(s[,categ==0])			### continuous variables in the ensemble "s"	
+s_cat=as.matrix(s[,categ==1])			### categorical variables in the ensemble "s"
 f=function(x){quantile(x,probs=seq(0,1,length.out=n+1))}
 quan=apply(as.matrix(dat_con),MARGIN=c(2),FUN=f)
 ```
@@ -78,8 +78,10 @@ Obj=function(dat,n,categ,w1,w2,w3,quan,s){
 ## "quan" = for all continuous variables in "dat", the quantile distributions in "n" strata
 ## "s" is the portion of dataset put into the sampling bin
 
-s_con=s[,categ==0]
-s_cat=s[,categ==1]
+dat_con=as.matrix(dat[,categ==0])		### continuous variables in the full dataset
+dat_cat=as.matrix(dat[,categ==1])		### categorical variables in the full dataset
+s_con=as.matrix(s[,categ==0])			### continuous variables in the ensemble "s"	
+s_cat=as.matrix(s[,categ==1])			### categorical variables in the ensemble "s"
 
 #### For each variable in "dat", count the number of samples in "s" found in each of the "n" strata:
 counts=matrix(nr=n^2,nc=ncol(s_con)+2)
