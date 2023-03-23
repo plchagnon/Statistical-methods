@@ -182,8 +182,7 @@ for(i in 1:nrun){
 	}
 
 #### We can plot the results of the algorithm
-plot(Oval[1:nrun]~c(1:nrun),type="l")
-
+plot(Oval[1:nrun]~c(1:nrun),type="l",ylim=c(min(Oval[Oval>0]),max(Oval)),xlim=c(0,max(c(1:nrun)[Oval>0])))
 ```
 
 <br>
