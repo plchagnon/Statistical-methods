@@ -143,8 +143,8 @@ Y=Y[!is.na(Y)]
 p=.8
 train=sample(c(rep(1,ceiling(p*length(Y))),rep(0,length(Y)-ceiling(p*length(Y)))),length(Y),replace=F)==1
 
-### Build a pls model (here with n=10 components)
-ncomp=10
+### Build a pls model (here with n=5 components)
+ncomp=5
 calib=plsr(Y~X,ncomp=ncomp,subset=train,validation="none")
 
 ### Predict, from this calibration models, Y values for the spectra not included in the calibration model (i.e., validate the model)
@@ -156,12 +156,70 @@ RMSE=function(pred,real){
 
 rmsecv=RMSE(Y[!train],pred[,,ncomp])
 
-temp=numeric(ncomp)
-for(i in 1:ncomp){temp[i]=RMSE(Y[!train],pred[,,i])}
+RMSECV=numeric(ncomp)
+for(i in 1:ncomp){RMSECV[i]=RMSE(Y[!train],pred[,,i])}
 
-plot(temp~c(1:ncomp))
+### Identify the best current model based on RMSE 
+best=cbind(RMSECV[RMSECV==min(RMSECV)],c(1:ncomp)[RMSECV==min(RMSECV)])
+colnames(best)=c("RMSE","Nb lat. variables")
 
-
-### in progress..................
-
+print(best)
+         RMSE Nb lat. variables
+[1,] 1.047995                 4
 ```
+<br>
+
+OK so before starting any variable selection, we build a full model and explore models including from $n=1$  to  $n=5$ latent variables (LVs). We proceed to model validation using a **validation set** (so simple splitting of initial data into training vs validation) and calculate the RMSE on these predictions for the validation set. The other two options available, built in the ``pls`` package, are **$k$-fold cross validation** (i.e., leaving $1/k^{th}$ of the observations for validation, and proceeding for the first $k^{th}$ portion, the second, up to $k$... nicely graphically explained [here](https://dataaspirant.com/wp-content/uploads/2020/12/10-K-Fold-Cross-Validation.png)) or **leave-one-out cross validation (LOOCV)**, which constructs as many models as there are observations ($n$), and look at the error on the prediction for the observation left out for validation (and calculate the overall RMSE on all the errors collectively). One nice thing about the validation set is that we can  take advantage of approaches developed to optimally partition a dataset into equally representative subsets of the whole dataset, such as the conditioned latin hypercube sampling (**cLHS**) or the **Kennard-Stone** algorithm.
+
+So now that we have our initial full model, we can enter the iterative process of the algorithm. This will eliminate predictors based on their weights. This has to take place into a loop, because at every $i^{th}$ step, the number of predictors to be eliminated will not be the same. Let's start the loop:
+
+```R
+N=200
+RMSEs=numeric(N)
+sets=list(N)
+sets[[1]]=X
+
+### Parameters to tune the number of parameters to keep at each step i:
+p=ncol(X)
+a=(p/2)^(1/(N-1))
+k=log(p/2)/(N-1)
+
+### Start the loop:
+for(i in 2:N){
+```
+The first set of predictors is obviously the full set $X$. Then for each step afterwards, we (1) calibrate a PLS model with the previous set of predictors and store its (2) **RMSE** value and (3) predictors' **weights**:
+
+```R
+nc=min(ncomp,ncol(sets[[i-1]]))
+calib=plsr(Y~sets[[i-1]],ncomp=nc,subset=train,validation="none")
+pred=predict(calib,sets[[i-1]][!train,])
+RMSEs[i-1]=RMSE(Y[!train],pred[,,nc])
+
+RMSECV=numeric(nc)
+for(j in 1:nc){RMSECV[j]=RMSE(Y[!train],pred[,,j])}
+best=cbind(RMSECV[RMSECV==min(RMSECV)],c(1:nc)[RMSECV==min(RMSECV)])
+coef=calib$coefficients[,,best[2]]
+names(coef)=colnames(sets[[i-1]])
+weights=abs(coef)/sum(abs(coef))
+```
+Now determine how many predictors should be "removed by force" based on their low weights. This number is represented by ``keep``. Then we subset the full set of predictors $X$ to keep only the ones with highest weights (number = ``keep``), and store them in ``preds1``:
+
+```R
+keep=round(p*a*exp(-k*i))
+preds1=X[,order(weights,decreasing=T)<=keep]
+```
+Now we need to do $p$ samplings with replacement from this new restricted set of predictors, based on their weights. Let's first subset the ``weights`` vector to keep only those for predictors included in ``preds1``. Then perform the sampling:
+
+```R
+weights1=weights[order(weights,decreasing=T)<=keep]
+preds2=X[,unique(sample(names(weights1),keep,weights1,replace=T))]
+if(ncol(as.matrix(preds2))<2){break}
+sets[[i]]=preds2[,order(colnames(as.matrix(preds2)))]}
+
+numb=numeric(N)
+for(i in 1:N){numb[i]=ncol(sets[[i]])}
+RMSEs=RMSEs[RMSEs>0]
+numb=numb[RMSEs>0]
+plot(RMSEs~numb)
+```
+
