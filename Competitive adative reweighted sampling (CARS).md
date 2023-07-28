@@ -190,11 +190,21 @@ for(i in 2:N){
 The first set of predictors is obviously the full set $X$. Then for each step afterwards, we (1) calibrate a PLS model with the previous set of predictors and store its (2) **RMSE** value and (3) predictors' **weights**:
 
 ```R
+### New training set
+pr=.8
+train=sample(c(rep(1,ceiling(pr*length(Y))),rep(0,length(Y)-ceiling(pr*length(Y)))),length(Y),replace=F)==1
+
+### How many principal components should be included in the PLS model?
 nc=min(ncomp,ncol(sets[[i-1]]))
+
+### Build the model
 calib=plsr(Y~sets[[i-1]],ncomp=nc,subset=train,validation="none")
+
+### Calculate predicted values for the validation set and calculate RMSE
 pred=predict(calib,sets[[i-1]][!train,])
 RMSEs[i-1]=RMSE(Y[!train],pred[,,nc])
 
+### Also look at RMSE for lower number of principal components in the model (between 1 and "nc")
 RMSECV=numeric(nc)
 for(j in 1:nc){RMSECV[j]=RMSE(Y[!train],pred[,,j])}
 best=cbind(RMSECV[RMSECV==min(RMSECV)],c(1:nc)[RMSECV==min(RMSECV)])
@@ -205,21 +215,34 @@ weights=abs(coef)/sum(abs(coef))
 Now determine how many predictors should be "removed by force" based on their low weights. This number is represented by ``keep``. Then we subset the full set of predictors $X$ to keep only the ones with highest weights (number = ``keep``), and store them in ``preds1``:
 
 ```R
+### Define the number of predictors (named "keep") to keep at this step
 keep=round(p*a*exp(-k*i))
+
+### Keep the best predictors of the current model
 preds1=X[,order(weights,decreasing=T)<=keep]
 ```
 Now we need to do $p$ samplings with replacement from this new restricted set of predictors, based on their weights. Let's first subset the ``weights`` vector to keep only those for predictors included in ``preds1``. Then perform the sampling:
 
 ```R
+### Extract the weights of these kept predictors for competitive adaptive resampling
 weights1=weights[order(weights,decreasing=T)<=keep]
+
+### Conduct the competitive adaptive resampling (weighted sampling based on weights with replacement)
 preds2=X[,unique(sample(names(weights1),keep,weights1,replace=T))]
+
+### Stop the algorithm if ever we're left with only a single predictor
 if(ncol(as.matrix(preds2))<2){break}
+
+### Store the set of predictors ready to move to next step of the loop
 sets[[i]]=preds2[,order(colnames(as.matrix(preds2)))]}
 
+### AND THAT'S IT!
+
+### Now extract basic data on the run. First, the number of predictors kept at each step:
 numb=numeric(N)
 for(i in 1:N){numb[i]=ncol(sets[[i]])}
 
-##### Remove steps when all predictors are removed from model
+##### Remove the last steps where all predictors had been removed from model (if applicable)
 RMSEs=RMSEs[numb>0]
 numb=numb[numb>0]
 plot(RMSEs~numb)
@@ -228,11 +251,9 @@ plot(RMSEs~numb)
 opt_numb=numb[numb>0&RMSEs==min(RMSEs)]
 
 ##### Define the optimal "set" of predictors
-best_set=sets[[c(1:length(numb))[numb==opt_numb]]]
+best_set=sets[[c(1:length(numb))[numb==opt_numb&RMSEs==min(RMSEs)]]]
 
 ##### Calculate the percent improvement (reduction) in RMSE compared to the full model
 (RMSEs[numb==max(numb)]-RMSEs[numb==opt_numb])/RMSEs[numb==max(numb)]
-
-
 ```
 
