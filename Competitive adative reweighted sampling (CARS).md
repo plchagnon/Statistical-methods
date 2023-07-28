@@ -218,8 +218,21 @@ sets[[i]]=preds2[,order(colnames(as.matrix(preds2)))]}
 
 numb=numeric(N)
 for(i in 1:N){numb[i]=ncol(sets[[i]])}
-RMSEs=RMSEs[RMSEs>0]
-numb=numb[RMSEs>0]
+
+##### Remove steps when all predictors are removed from model
+RMSEs=RMSEs[numb>0]
+numb=numb[numb>0]
 plot(RMSEs~numb)
+
+##### Define the optimal number of predictors
+opt_numb=numb[numb>0&RMSEs==min(RMSEs)]
+
+##### Define the optimal "set" of predictors
+best_set=sets[[c(1:length(numb))[numb==opt_numb]]]
+
+##### Calculate the percent improvement (reduction) in RMSE compared to the full model
+(RMSEs[numb==max(numb)]-RMSEs[numb==opt_numb])/RMSEs[numb==max(numb)]
+
+
 ```
 
