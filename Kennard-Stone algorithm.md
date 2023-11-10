@@ -30,7 +30,8 @@ A very handy function already exists in the R package ``prospectr`` (function ``
 ```R
 rm(list=ls())
 
-p=data.frame(rnorm(100,10,2),rnorm(100,4,1),rnorm(100,200,34))
+N=1000
+p=data.frame(rnorm(N,10,2),rnorm(N,4,1),rnorm(N,200,34))
 sc.p=scale(p)
 
 d=as.matrix(dist(sc.p))
@@ -45,9 +46,76 @@ for(i in 2:n){
 	d=d[,!colnames(d)%in%k]
 	x=d[k[i-1],]
 	x=x[x>0]
-	k[i]=names(x)[x==min(x)][1]}
+	k[i]=names(x)[x==max(x)][1]}
 
-	
+
+### Visualize our output and compare to random sampling:
+k=as.numeric(k)
+library(vegan)
+ord=rda(p~1)
+sc=scores(ord)$sites
+col=rep("#B9CBB930",N)
+col[k]="#E12A2A40"
+
+par(mfrow=c(1,2))
+plot(sc[,2]~sc[,1],pch=21,col=NA,bg=col,cex=1.5,main="KenStone")
+plot(sc[,2]~sc[,1],pch=21,col=NA,bg=sample(col,N,replace=F),cex=1.5,main="Random")
+
 ```
 
 A handy feature in the ``kenStone`` function is that you can choose to calculate distance after dimensionality reduction (if $p$ is very large), and calculate distances based only on principal components capturing at least a certain proportion (user-defined) of the total variance.
+
+One can readily see, however, that Kennard-Stone biases in favour of outlier inclusion. To minimize this bias, we may want to opt for selecting distances in some kind of upper quantile, as opposed to systematically selecting **the most distant** next sample in the algorithm? For example:
+
+```r
+rm(list=ls())
+
+ks=function(thr){
+N=1000
+p=data.frame(rnorm(N,10,2),rnorm(N,4,1),rnorm(N,200,34))
+sc.p=scale(p)
+
+d=as.matrix(dist(sc.p))
+
+n=80
+
+k=numeric(n)
+k[1]=sample(1:nrow(d),1)
+
+
+for(i in 2:n){
+	d=d[,!colnames(d)%in%k]
+	x=d[k[i-1],]
+	x=x[x>0]
+	candidates=x[x>quantile(x,thr)]
+	k[i]=names(candidates)[sample(1:length(candidates),1)]}
+
+### Visualize our output and compare to random sampling:
+k=as.numeric(k)
+library(vegan)
+ord=rda(p~1)
+sc=scores(ord)$sites
+col=rep("#B9CBB940",N)
+col[k]="#E12A2A70"
+
+
+par(mar=c(2,2,1,1))
+plot(sc[,2]~sc[,1],pch=21,col=NA,bg=col,cex=1.5,main=paste0("KenStone, thr = ",thr))
+plot(sc[,2]~sc[,1],pch=21,col=NA,bg=sample(col,N,replace=F),cex=1.5,main="Random")
+}
+
+pdf("test.pdf",height=10,width=5)
+par(mfrow=c(8,2))
+ks(.95)
+ks(.85)
+ks(.75)
+ks(.65)
+ks(.55)
+ks(.45)
+ks(.35)
+ks(.25)
+dev.off()
+
+```
+
+Such test shows that quantile $\sim [0.75,0.85]$ seems to work fairly well, and when we progressively decrease it, of course we progressively get closer to random outputs...
